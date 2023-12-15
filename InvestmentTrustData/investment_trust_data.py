@@ -5,11 +5,13 @@ from openpyxl.styles.fonts import Font
 import bs4
 import requests
 import shutil
-from private import CSV_PATH, OUTPUT_PATH, BACKUP_PATH, INVESTMENT_TRUST_NAMES
+import os
+
+from const import OUTPUT_DIR_PATH, BACKUP_DIR_PATH, INVESTMENT_TRUST_NAMES
+from methods import download_csv_data
 
 
 class InvestmentTrustData:
-
     def __init__(self):
         # 基準日
         self.base_date = ''
@@ -26,20 +28,9 @@ class InvestmentTrustData:
 URLS = ['https://site0.sbisec.co.jp/marble/fund/detail/achievement.do?Param6=10331418A',
         'https://site0.sbisec.co.jp/marble/fund/detail/achievement.do?Param6=103311187',
         'https://site0.sbisec.co.jp/marble/fund/detail/achievement.do?Param6=20331A211']
-DOWNLOADS = ['https://www.am.mufg.jp/fund_file/setteirai/253425.csv',
-             'https://www.am.mufg.jp/fund_file/setteirai/253266.csv',
-             'https://www.am.mufg.jp/fund_file/setteirai/254062.csv']
 
-# 投資信託CSVを取得し特定フォルダに保存
-for i in range(0, len(DOWNLOADS)):
-    res = requests.get(DOWNLOADS[i])
-    res.raise_for_status()
-    f = open(f'{CSV_PATH}/{INVESTMENT_TRUST_NAMES[i]}.csv', 'wb')
-    for chunk in res.iter_content(100000):
-        f.write(chunk)
-    f.close()
-    time.sleep(1)
 
+download_csv_data()
 # スクレイピングしたデータの保存用
 datas = []
 
@@ -70,7 +61,9 @@ for url in URLS:
 
 # 取得した情報をエクセルに書き込み保存
 file_name = f'{datas[0].base_date[:4]}_投資信託.xlsx'
-wb = openpyxl.load_workbook(f'{OUTPUT_PATH}/{file_name}')
+if not os.path.exists(OUTPUT_DIR_PATH):
+    os.makedirs(OUTPUT_DIR_PATH)
+wb = openpyxl.load_workbook(f'{OUTPUT_DIR_PATH / file_name}')
 i = 0
 right = Alignment(horizontal='right')
 is_modify = False
@@ -100,9 +93,9 @@ for name in INVESTMENT_TRUST_NAMES:
     sheet.cell(row=insert_row, column=4).value = data.total_assets
     i += 1
 
-if BACKUP_PATH.exists():
-    shutil.rmtree(BACKUP_PATH)
+if BACKUP_DIR_PATH.exists():
+    shutil.rmtree(BACKUP_DIR_PATH)
 # エクセルに変更があった場合、保存、バックアップにコピーする
 if is_modify:
-    shutil.copytree(OUTPUT_PATH, BACKUP_PATH)
+    shutil.copytree(OUTPUT_DIR_PATH, BACKUP_DIR_PATH)
     wb.save(f'Output/{file_name}')
